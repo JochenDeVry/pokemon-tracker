@@ -7,7 +7,7 @@ services:
     container_name: pokemon_nginx
     restart: unless-stopped
     ports:
-      - "${HTTP_PORT:-8180}:80"
+      - "${HTTP_PORT:-8280}:80"
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
       - frontend_build:/usr/share/nginx/html:ro
@@ -29,10 +29,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-pokemon_pass}
     volumes:
       - db_data:/var/lib/mysql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
-      - ./database/migrations/001_add_friendships.sql:/docker-entrypoint-initdb.d/02_friendships.sql:ro
-      - ./database/migrations/002_add_profiles.sql:/docker-entrypoint-initdb.d/03_profiles.sql:ro
-      - ./database/migrations/003_add_messages.sql:/docker-entrypoint-initdb.d/04_messages.sql:ro
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - pokemon_network
     healthcheck:

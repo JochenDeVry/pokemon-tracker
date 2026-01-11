@@ -61,12 +61,12 @@ Scroll naar **Environment variables** en voeg deze toe:
 
 | Variable | Voorbeeld Waarde | Opmerking |
 |----------|-----------------|-----------|
-| `HTTP_PORT` | `8180` | Externe poort |
+| `HTTP_PORT` | `8280` | Externe poort |
 | `MYSQL_ROOT_PASSWORD` | `SuperVeiligWachtwoord123!` | Verander dit! |
 | `MYSQL_DATABASE` | `pokemon_cards` | Database naam |
 | `MYSQL_USER` | `pokemon_user` | Database gebruiker |
 | `MYSQL_PASSWORD` | `VeiligDBWachtwoord456!` | Verander dit! |
-| `VITE_API_URL` | `http://192.168.1.100:8180/api` | Vervang IP! |
+| `VITE_API_URL` | `http://192.168.1.100:8280/api` | Vervang IP! |
 
 **BELANGRIJK**: 
 - Vervang `192.168.1.100` met het **daadwerkelijke IP van je NAS**
@@ -99,7 +99,7 @@ Dit duurt **3-5 minuten**.
 
 ### Stap 7: Testen
 
-Open in je browser: `http://nas-ip:8180`
+Open in je browser: `http://nas-ip:8280`
 
 Je zou nu de login pagina moeten zien!
 
@@ -139,7 +139,7 @@ docker-compose -f docker-compose.prod.yml up -d --build
 
 Configureer in de NAS interface:
 - Source: `pokemon.lokaal.nl` op poort 443
-- Destination: `localhost:8180`
+- Destination: `localhost:8280`
 
 ## Backup Instellen
 
