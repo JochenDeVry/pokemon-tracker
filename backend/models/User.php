@@ -145,6 +145,35 @@ class User {
     }
     
     /**
+     * Change user password
+     */
+    public function changePassword($userId, $currentPassword, $newPassword) {
+        // Get current password hash
+        $stmt = $this->db->prepare("SELECT password_hash FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$user || !password_verify($currentPassword, $user['password_hash'])) {
+            return false;
+        }
+        
+        if (strlen($newPassword) < 6) {
+            return false;
+        }
+        
+        $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
+        $stmt = $this->db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+        return $stmt->execute([$newHash, $userId]);
+    }
+    
+    /**
+     * Update user profile
+     */
+    public function updateProfile($userId, $data) {
+        return $this->update($userId, $data);
+    }
+    
+    /**
      * Get user card statistics
      */
     public function getStats($userId) {
@@ -159,5 +188,85 @@ class User {
         );
         $stmt->execute([$userId]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    /**
+     * Get friends leaderboard
+     */
+    public function getFriendsLeaderboard($userId) {
+        $stmt = $this->db->prepare(
+            "SELECT 
+                u.id,
+                u.username,
+                u.display_name,
+                u.is_public,
+                COUNT(c.id) as total_cards,
+                COALESCE(SUM(COALESCE(c.current_price, c.purchase_price, 0) * c.quantity), 0) as total_value,
+                COUNT(DISTINCT c.set_name) as unique_sets,
+                1 as is_friend
+             FROM users u
+             INNER JOIN friendships f ON (
+                (f.user_id = ? AND f.friend_id = u.id) OR
+                (f.friend_id = ? AND f.user_id = u.id)
+             )
+             LEFT JOIN cards c ON c.user_id = u.id
+             WHERE f.status = 'accepted'
+             GROUP BY u.id, u.username, u.display_name, u.is_public
+             
+             UNION
+             
+             SELECT 
+                u.id,
+                u.username,
+                u.display_name,
+                u.is_public,
+                COUNT(c.id) as total_cards,
+                COALESCE(SUM(COALESCE(c.current_price, c.purchase_price, 0) * c.quantity), 0) as total_value,
+                COUNT(DISTINCT c.set_name) as unique_sets,
+                0 as is_friend
+             FROM users u
+             LEFT JOIN cards c ON c.user_id = u.id
+             WHERE u.id = ?
+             GROUP BY u.id, u.username, u.display_name, u.is_public
+             
+             ORDER BY total_value DESC, total_cards DESC
+            "
+        );
+        $stmt->execute([$userId, $userId, $userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    /**
+     * Get global leaderboard
+     */
+    public function getGlobalLeaderboard($currentUserId) {
+        require_once __DIR__ . '/Friendship.php';
+        $friendship = new Friendship();
+        
+        $stmt = $this->db->prepare(
+            "SELECT 
+                u.id,
+                u.username,
+                u.display_name,
+                u.is_public,
+                COUNT(c.id) as total_cards,
+                COALESCE(SUM(COALESCE(c.current_price, c.purchase_price, 0) * c.quantity), 0) as total_value,
+                COUNT(DISTINCT c.set_name) as unique_sets
+             FROM users u
+             LEFT JOIN cards c ON c.user_id = u.id
+             GROUP BY u.id, u.username, u.display_name, u.is_public
+             ORDER BY total_value DESC, total_cards DESC
+             LIMIT 100
+            "
+        );
+        $stmt->execute();
+        $leaderboard = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Add is_friend flag for each user
+        foreach ($leaderboard as &$user) {
+            $user['is_friend'] = $friendship->areFriends($currentUserId, $user['id']);
+        }
+        
+        return $leaderboard;
     }
 }

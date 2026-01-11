@@ -4,6 +4,10 @@ import App from './App.vue'
 import CardList from './components/CardList.vue'
 import CardForm from './components/CardForm.vue'
 import Auth from './components/Auth.vue'
+import Friends from './components/Friends.vue'
+import Profile from './components/Profile.vue'
+import Leaderboard from './components/Leaderboard.vue'
+import Chat from './components/Chat.vue'
 import api from './services/api.js'
 
 const routes = [
@@ -11,6 +15,10 @@ const routes = [
   { path: '/', component: CardList, meta: { requiresAuth: true } },
   { path: '/add', component: CardForm, meta: { requiresAuth: true } },
   { path: '/edit/:id', component: CardForm, props: true, meta: { requiresAuth: true } },
+  { path: '/friends', component: Friends, meta: { requiresAuth: true } },
+  { path: '/profile', component: Profile, meta: { requiresAuth: true } },
+  { path: '/leaderboard', component: Leaderboard, meta: { requiresAuth: true } },
+  { path: '/chat', component: Chat, meta: { requiresAuth: true } },
   { path: '/user/:userId', component: CardList, props: true, meta: { requiresAuth: true } }
 ]
 

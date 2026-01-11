@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: pokemon_nginx
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8180}:80"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - frontend_build:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - pokemon_network
+
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: pokemon_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-pokemon_cards}
+      MYSQL_USER: ${MYSQL_USER:-pokemon_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-pokemon_pass}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./database/migrations/001_add_friendships.sql:/docker-entrypoint-initdb.d/02_friendships.sql:ro
+      - ./database/migrations/002_add_profiles.sql:/docker-entrypoint-initdb.d/03_profiles.sql:ro
+      - ./database/migrations/003_add_messages.sql:/docker-entrypoint-initdb.d/04_messages.sql:ro
+    networks:
+      - pokemon_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PHP Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pokemon_backend
+    restart: unless-stopped
+    volumes:
+      - ./backend:/var/www/html:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_NAME: ${MYSQL_DATABASE:-pokemon_cards}
+      DB_USER: ${MYSQL_USER:-pokemon_user}
+      DB_PASS: ${MYSQL_PASSWORD:-pokemon_pass}
+      PHP_DISPLAY_ERRORS: "Off"
+      PHP_DISPLAY_STARTUP_ERRORS: "Off"
+    networks:
+      - pokemon_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health.php"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Vue Frontend Builder
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api}
+    container_name: pokemon_frontend
+    restart: "no"
+    volumes:
+      - frontend_build:/app/dist
+    networks:
+      - pokemon_network
+
+networks:
+  pokemon_network:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local
+  frontend_build:
+    driver: local

@@ -5,6 +5,11 @@
         <h1>🎴 Pokemon Kaarten Tracker</h1>
         <nav>
           <router-link to="/" class="nav-link">Mijn Collectie</router-link>
+          <router-link to="/leaderboard" class="nav-link">🏆 Klassement</router-link>
+          <router-link to="/chat" class="nav-link chat-link">
+            💬 Chat
+            <span v-if="unreadCount > 0" class="unread-badge">{{ unreadCount }}</span>
+          </router-link>
           <router-link to="/add" class="nav-link btn-primary">+ Kaart Toevoegen</router-link>
           
           <div class="user-menu">
@@ -18,6 +23,24 @@
                 <strong>{{ currentUser.display_name }}</strong>
                 <small>@{{ currentUser.username }}</small>
               </div>
+              
+              <div class="dropdown-divider"></div>
+              
+              <router-link 
+                to="/friends" 
+                class="dropdown-item"
+                @click="showUserDropdown = false"
+              >
+                👥 Vrienden
+              </router-link>
+              
+              <router-link 
+                to="/profile" 
+                class="dropdown-item"
+                @click="showUserDropdown = false"
+              >
+                ⚙️ Mijn Profiel
+              </router-link>
               
               <div class="dropdown-divider"></div>
               
@@ -66,7 +89,8 @@ export default {
     return {
       currentUser: null,
       otherUsers: [],
-      showUserDropdown: false
+      showUserDropdown: false,
+      unreadCount: 0
     }
   },
   async mounted() {
@@ -78,6 +102,14 @@ export default {
         this.showUserDropdown = false
       }
     })
+    
+    // Poll for unread messages every 10 seconds
+    if (this.currentUser) {
+      this.loadUnreadCount()
+      setInterval(() => {
+        this.loadUnreadCount()
+      }, 10000)
+    }
   },
   methods: {
     async checkAuth() {
@@ -106,6 +138,22 @@ export default {
     handleLogin(user) {
       this.currentUser = user
       this.loadUsers()
+      this.loadUnreadCount()
+      
+      // Start polling for unread messages
+      setInterval(() => {
+        this.loadUnreadCount()
+      }, 10000)
+    },
+    
+    async loadUnreadCount() {
+      if (!this.currentUser) return
+      try {
+        const response = await api.getUnreadCount()
+        this.unreadCount = response.data.data.unread_count || 0
+      } catch (err) {
+        console.error('Failed to load unread count:', err)
+      }
     },
     
     async handleLogout() {
@@ -197,6 +245,24 @@ nav {
 .nav-link.btn-primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.chat-link {
+  position: relative;
+}
+
+.unread-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #e74c3c;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
 }
 
 .user-menu {

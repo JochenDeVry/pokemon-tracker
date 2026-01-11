@@ -73,5 +73,77 @@ export default {
 
   scrapeCardmarket(url) {
     return axios.post(`${API_URL}/scrape`, { url })
+  },
+
+  // Friends
+  getFriends() {
+    return axios.get(`${API_URL}/friends`)
+  },
+
+  getPendingRequests() {
+    return axios.get(`${API_URL}/friends/requests`)
+  },
+
+  getSentRequests() {
+    return axios.get(`${API_URL}/friends/sent`)
+  },
+
+  getFriendshipStatus(userId) {
+    return axios.get(`${API_URL}/friends/status/${userId}`)
+  },
+
+  sendFriendRequest(friendId) {
+    return axios.post(`${API_URL}/friends/request`, { friend_id: friendId })
+  },
+
+  acceptFriendRequest(friendId) {
+    return axios.post(`${API_URL}/friends/accept`, { friend_id: friendId })
+  },
+
+  declineFriendRequest(friendId) {
+    return axios.post(`${API_URL}/friends/decline`, { friend_id: friendId })
+  },
+
+  removeFriend(friendId) {
+    return axios.post(`${API_URL}/friends/remove`, { friend_id: friendId })
+  },
+
+  // Profile
+  updateProfile(data) {
+    return axios.put(`${API_URL}/profile`, data)
+  },
+
+  changePassword(data) {
+    return axios.post(`${API_URL}/profile/password`, data)
+  },
+
+  // Leaderboard
+  getFriendsLeaderboard() {
+    return axios.get(`${API_URL}/leaderboard/friends`)
+  },
+
+  getGlobalLeaderboard() {
+    return axios.get(`${API_URL}/leaderboard/global`)
+  },
+
+  // Messages
+  getConversations() {
+    return axios.get(`${API_URL}/messages`)
+  },
+
+  getConversation(friendId) {
+    return axios.get(`${API_URL}/messages/conversation/${friendId}`)
+  },
+
+  sendMessage(receiverId, message) {
+    return axios.post(`${API_URL}/messages`, { receiver_id: receiverId, message })
+  },
+
+  getUnreadCount() {
+    return axios.get(`${API_URL}/messages/unread`)
+  },
+
+  pollMessages(friendId, since) {
+    return axios.get(`${API_URL}/messages/poll/${friendId}?since=${since}`)
   }
 }

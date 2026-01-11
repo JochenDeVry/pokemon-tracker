@@ -79,12 +79,20 @@ class Auth {
     
     /**
      * Check if user can access another user's data
+     * User can view if: own collection, users are friends, or target is public
      */
     public static function canViewUser($targetUserId) {
         $currentUserId = self::userId();
         
         // User can always view own data
         if ($currentUserId == $targetUserId) {
+            return true;
+        }
+        
+        // Check if users are friends
+        require_once __DIR__ . '/../models/Friendship.php';
+        $friendship = new Friendship();
+        if ($friendship->areFriends($currentUserId, $targetUserId)) {
             return true;
         }
         

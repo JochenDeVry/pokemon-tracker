@@ -1,14 +1,19 @@
 # Environment files
 .env
 .env.local
+.env.production
 
 # Dependencies
 node_modules/
+frontend/node_modules/
 vendor/
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
@@ -16,7 +21,13 @@ Thumbs.db
 
 # Docker
 *.log
+logs/
+docker-compose.override.yml
 
 # Build files
 frontend/dist/
 frontend/.cache/
+frontend/.vite/
+
+# Database
+database/data/

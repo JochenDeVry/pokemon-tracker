@@ -18,11 +18,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/models/Card.php';
 require_once __DIR__ . '/models/User.php';
 require_once __DIR__ . '/models/Achievement.php';
+require_once __DIR__ . '/models/Friendship.php';
+require_once __DIR__ . '/models/Message.php';
 require_once __DIR__ . '/services/CardmarketScraper.php';
 require_once __DIR__ . '/middleware/Auth.php';
 
 $card = new Card();
 $user = new User();
+$friendship = new Friendship();
+$message = new Message();
 $scraper = new CardmarketScraper();
 
 Auth::init();
@@ -81,6 +85,105 @@ try {
                 $users = $user->getAllPublic();
                 http_response_code(200);
                 echo json_encode(['success' => true, 'data' => $users]);
+                
+            } elseif ($path_parts[0] === 'leaderboard') {
+                // Leaderboard endpoints
+                Auth::require();
+                $currentUserId = Auth::userId();
+                
+                if (isset($path_parts[1]) && $path_parts[1] === 'friends') {
+                    // GET /api/leaderboard/friends - Friends leaderboard
+                    $leaderboard = $user->getFriendsLeaderboard($currentUserId);
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'data' => $leaderboard]);
+                    
+                } elseif (isset($path_parts[1]) && $path_parts[1] === 'global') {
+                    // GET /api/leaderboard/global - Global leaderboard
+                    $leaderboard = $user->getGlobalLeaderboard($currentUserId);
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'data' => $leaderboard]);
+                }
+                
+            } elseif ($path_parts[0] === 'friendships' || $path_parts[0] === 'friends') {
+                // Friendship endpoints
+                Auth::require();
+                $currentUserId = Auth::userId();
+                
+                if (!isset($path_parts[1])) {
+                    // GET /api/friends - Get all friends
+                    $friends = $friendship->getFriends($currentUserId);
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'data' => $friends]);
+                    
+                } elseif ($path_parts[1] === 'requests') {
+                    // GET /api/friends/requests - Get pending requests (received)
+                    $requests = $friendship->getPendingRequests($currentUserId);
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'data' => $requests]);
+                    
+                } elseif ($path_parts[1] === 'sent') {
+                    // GET /api/friends/sent - Get sent requests
+                    $sent = $friendship->getSentRequests($currentUserId);
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'data' => $sent]);
+                    
+                } elseif ($path_parts[1] === 'status' && isset($path_parts[2])) {
+                    // GET /api/friends/status/{userId} - Get friendship status
+                    $targetUserId = (int)$path_parts[2];
+                    $status = $friendship->getFriendshipStatus($currentUserId, $targetUserId);
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'data' => $status]);
+                }
+                
+            } elseif ($path_parts[0] === 'messages') {
+                // Messages endpoints
+                Auth::require();
+                $currentUserId = Auth::userId();
+                
+                if (!isset($path_parts[1])) {
+                    // GET /api/messages - Get all conversations
+                    $conversations = $message->getConversations($currentUserId);
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'data' => $conversations]);
+                    
+                } elseif ($path_parts[1] === 'conversation' && isset($path_parts[2])) {
+                    // GET /api/messages/conversation/{friendId} - Get conversation
+                    $friendId = (int)$path_parts[2];
+                    
+                    // Check if they are friends
+                    if (!$friendship->areFriends($currentUserId, $friendId)) {
+                        http_response_code(403);
+                        echo json_encode(['success' => false, 'message' => 'Je kunt alleen berichten sturen naar vrienden']);
+                        break;
+                    }
+                    
+                    $messages = $message->getConversation($currentUserId, $friendId);
+                    $message->markAsRead($currentUserId, $friendId);
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'data' => $messages]);
+                    
+                } elseif ($path_parts[1] === 'unread') {
+                    // GET /api/messages/unread - Get unread count
+                    $count = $message->getUnreadCount($currentUserId);
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'data' => ['count' => $count]]);
+                    
+                } elseif ($path_parts[1] === 'poll' && isset($path_parts[2]) && isset($_GET['since'])) {
+                    // GET /api/messages/poll/{friendId}?since={timestamp} - Poll for new messages
+                    $friendId = (int)$path_parts[2];
+                    $since = $_GET['since'];
+                    
+                    if (!$friendship->areFriends($currentUserId, $friendId)) {
+                        http_response_code(403);
+                        echo json_encode(['success' => false, 'message' => 'Niet toegestaan']);
+                        break;
+                    }
+                    
+                    $newMessages = $message->getNewMessages($currentUserId, $friendId, $since);
+                    $message->markAsRead($currentUserId, $friendId);
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'data' => $newMessages]);
+                }
                 
             } elseif (empty($path_parts[0]) || $path_parts[0] === 'cards' && !isset($path_parts[1])) {
                 // GET /api/cards - Get all cards (for current user or specified user)
@@ -229,6 +332,132 @@ try {
                 http_response_code(200);
                 echo json_encode(['success' => true, 'message' => 'Uitgelogd']);
                 
+            } elseif ($path_parts[0] === 'friends' && isset($path_parts[1])) {
+                // Friend request endpoints
+                Auth::require();
+                $currentUserId = Auth::userId();
+                
+                if ($path_parts[1] === 'request' && isset($input['friend_id'])) {
+                    // POST /api/friends/request - Send friend request
+                    $friendId = (int)$input['friend_id'];
+                    
+                    if ($friendId === $currentUserId) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'message' => 'Je kunt jezelf niet als vriend toevoegen']);
+                        break;
+                    }
+                    
+                    $result = $friendship->sendRequest($currentUserId, $friendId);
+                    if ($result) {
+                        http_response_code(201);
+                        echo json_encode(['success' => true, 'message' => 'Vriendschapsverzoek verzonden']);
+                    } else {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'message' => 'Verzoek bestaat al of kon niet worden verzonden']);
+                    }
+                    
+                } elseif ($path_parts[1] === 'accept' && isset($input['friend_id'])) {
+                    // POST /api/friends/accept - Accept friend request
+                    $friendId = (int)$input['friend_id'];
+                    $result = $friendship->acceptRequest($currentUserId, $friendId);
+                    
+                    if ($result) {
+                        http_response_code(200);
+                        echo json_encode(['success' => true, 'message' => 'Vriendschapsverzoek geaccepteerd']);
+                    } else {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'message' => 'Kon verzoek niet accepteren']);
+                    }
+                    
+                } elseif ($path_parts[1] === 'decline' && isset($input['friend_id'])) {
+                    // POST /api/friends/decline - Decline friend request
+                    $friendId = (int)$input['friend_id'];
+                    $result = $friendship->declineRequest($currentUserId, $friendId);
+                    
+                    if ($result) {
+                        http_response_code(200);
+                        echo json_encode(['success' => true, 'message' => 'Vriendschapsverzoek afgewezen']);
+                    } else {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'message' => 'Kon verzoek niet afwijzen']);
+                    }
+                    
+                } elseif ($path_parts[1] === 'remove' && isset($input['friend_id'])) {
+                    // POST /api/friends/remove - Remove friend
+                    $friendId = (int)$input['friend_id'];
+                    $result = $friendship->removeFriend($currentUserId, $friendId);
+                    
+                    if ($result) {
+                        http_response_code(200);
+                        echo json_encode(['success' => true, 'message' => 'Vriend verwijderd']);
+                    } else {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'message' => 'Kon vriend niet verwijderen']);
+                    }
+                }
+                
+            } elseif ($path_parts[0] === 'messages') {
+                // Messages endpoints
+                Auth::require();
+                $currentUserId = Auth::userId();
+                
+                if (!isset($path_parts[1])) {
+                    // POST /api/messages - Send message
+                    if (!isset($input['receiver_id']) || !isset($input['message'])) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'message' => 'Ontvanger en bericht zijn verplicht']);
+                        break;
+                    }
+                    
+                    $receiverId = (int)$input['receiver_id'];
+                    $messageText = trim($input['message']);
+                    
+                    if (empty($messageText)) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'message' => 'Bericht mag niet leeg zijn']);
+                        break;
+                    }
+                    
+                    // Check if they are friends
+                    if (!$friendship->areFriends($currentUserId, $receiverId)) {
+                        http_response_code(403);
+                        echo json_encode(['success' => false, 'message' => 'Je kunt alleen berichten sturen naar vrienden']);
+                        break;
+                    }
+                    
+                    $result = $message->send($currentUserId, $receiverId, $messageText);
+                    if ($result) {
+                        http_response_code(201);
+                        echo json_encode(['success' => true, 'message' => 'Bericht verzonden']);
+                    } else {
+                        http_response_code(500);
+                        echo json_encode(['success' => false, 'message' => 'Kon bericht niet verzenden']);
+                    }
+                }
+                
+            } elseif ($path_parts[0] === 'profile') {
+                // Profile endpoints
+                Auth::require();
+                $currentUserId = Auth::userId();
+                
+                if (isset($path_parts[1]) && $path_parts[1] === 'password') {
+                    // POST /api/profile/password - Change password
+                    if (!isset($input['current_password']) || !isset($input['new_password'])) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'message' => 'Huidig en nieuw wachtwoord zijn verplicht']);
+                        break;
+                    }
+                    
+                    $result = $user->changePassword($currentUserId, $input['current_password'], $input['new_password']);
+                    if ($result) {
+                        http_response_code(200);
+                        echo json_encode(['success' => true, 'message' => 'Wachtwoord gewijzigd']);
+                    } else {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'message' => 'Huidig wachtwoord is onjuist']);
+                    }
+                }
+                
             } elseif ($path_parts[0] === 'cards') {
                 // POST /api/cards - Create new card
                 Auth::require();
@@ -296,7 +525,26 @@ try {
             break;
 
         case 'PUT':
-            if ($path_parts[0] === 'cards' && isset($path_parts[1]) && is_numeric($path_parts[1])) {
+            if ($path_parts[0] === 'profile') {
+                // PUT /api/profile - Update profile
+                Auth::require();
+                $currentUserId = Auth::userId();
+                
+                $result = $user->updateProfile($currentUserId, [
+                    'display_name' => $input['display_name'] ?? null,
+                    'email' => $input['email'] ?? null,
+                    'is_public' => isset($input['is_public']) ? (int)$input['is_public'] : null
+                ]);
+                
+                if ($result) {
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'message' => 'Profiel bijgewerkt']);
+                } else {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'message' => 'Kon profiel niet bijwerken']);
+                }
+                
+            } elseif ($path_parts[0] === 'cards' && isset($path_parts[1]) && is_numeric($path_parts[1])) {
                 // PUT /api/cards/{id} - Update card
                 Auth::require();
                 $id = $path_parts[1];
