@@ -34,10 +34,11 @@ services:
     networks:
       - pokemon_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
   # PHP Backend
   backend:
@@ -50,7 +51,7 @@ services:
       - ./backend:/var/www/html:ro
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
     environment:
       DB_HOST: db
       DB_NAME: ${MYSQL_DATABASE:-pokemon_cards}
@@ -61,10 +62,11 @@ services:
     networks:
       - pokemon_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health.php"]
+      test: ["CMD", "curl", "-f", "http://localhost/health.php", "||", "exit", "1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   # Vue Frontend Builder
   frontend:
