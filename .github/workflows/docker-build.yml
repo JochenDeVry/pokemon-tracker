@@ -21,7 +21,7 @@ jobs:
       run: docker build -t pokemon-backend:test ./backend
       
     - name: Build frontend
-      run: docker build -f ./frontend/Dockerfile.prod -t pokemon-frontend:test --build-arg VITE_API_URL=http://localhost:8080/api ./frontend
+      run: docker build -f ./frontend/Dockerfile.prod -t pokemon-frontend:test --build-arg VITE_API_URL=http://localhost:8180/api ./frontend
       
-    - name: Test docker-compose
-      run: docker-compose -f docker-compose.prod.yml config
+    - name: Test docker compose config
+      run: docker compose -f docker-compose.prod.yml config
