@@ -25,6 +25,8 @@ services:
       dockerfile: Dockerfile
     container_name: pokemon_db
     restart: unless-stopped
+    ports:
+      - "${DB_PORT:-3306}:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-pokemon_cards}
