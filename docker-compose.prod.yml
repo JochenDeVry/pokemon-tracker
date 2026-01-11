@@ -3,13 +3,14 @@ version: '3.8'
 services:
   # Nginx Reverse Proxy
   nginx:
-    image: nginx:alpine
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     container_name: pokemon_nginx
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-8280}:80"
     volumes:
-      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
       - frontend_build:/usr/share/nginx/html:ro
     depends_on:
       - backend
