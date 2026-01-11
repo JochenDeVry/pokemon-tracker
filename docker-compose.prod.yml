@@ -19,7 +19,9 @@ services:
 
   # MySQL Database
   db:
-    image: mysql:8.0
+    build:
+      context: ./database
+      dockerfile: Dockerfile
     container_name: pokemon_db
     restart: unless-stopped
     environment:
@@ -29,7 +31,6 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-pokemon_pass}
     volumes:
       - db_data:/var/lib/mysql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - pokemon_network
     healthcheck:
